@@ -7,14 +7,7 @@ import pandas as pd
 import numpy as np
 
 
-# Logging operations
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-FORMATTER = logging.Formatter('%(asctime)s: %(relativeCreated)d - %(filename)s - [ %(message)s ]',
-                              '%m/%d/%Y %H:%M:%S')
-console = logging.StreamHandler()
-console.setFormatter(FORMATTER)
-logger.addHandler(console)
 
 
 DATA_FILE = Path("data", "mushrooms.csv")
@@ -138,6 +131,14 @@ def main():
                         help="The portion of the data to use as validation and test sets. "
                              "Defaults to 0.1.")
     args = parser.parse_args()
+
+    # Logging operations
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s: %(filename)s - [ %(message)s ]',
+                                  '%m/%d/%Y %H:%M:%S')
+    console = logging.StreamHandler()
+    console.setFormatter(formatter)
+    logger.addHandler(console)
 
     data_preparation(data_split=args.split)
 
