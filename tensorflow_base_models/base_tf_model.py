@@ -1,3 +1,11 @@
+"""
+This script has classes with base Tensorflow models. They can be used to
+reuse functionality (like training) between different model architectures,
+for different projects.
+"""
+
+# TODO: Add option to build the model for Eager execution mode.
+
 import logging
 import sys
 from pathlib import Path
@@ -16,12 +24,19 @@ logger = logging.getLogger()
 
 
 class BaseTensorflowModel(object):
+    """
+    Class used as a base Tensorflow model that provides many reusable functions for different
+    model architectures. Classes that inherit from this will need to define the functions:
+     - _create_placeholders
+     - _build_forward
+     - _get_training_feed_dict
+     - _get_validation_feed_dict
+    """
 
-    def __init__(self, mode: str="train"):
+    def __init__(self):
 
-        # TODO: Use mode to build a model in debug mode (Eager execution)
-        self.mode = mode
         self.model_name = None
+        self.generated_graph = False
         self.global_step = tf.get_variable(name="global_step",
                                            shape=[],
                                            dtype='int32',
@@ -57,15 +72,38 @@ class BaseTensorflowModel(object):
         raise NotImplementedError
 
     def build_graph(self):
+        """
+        Build the model's graph. The functions '_create_placeholders' and '_build_forward'
+        need to be defined in the child class of this one.
+        """
         logger.info("Building tensorflow graph for {}.".format(self.model_name))
         self._create_placeholders()
         self._build_forward()
 
+        self.generated_graph = True
+
     def train_model(self, epochs: int, learning_rate: float,
                     val_period: int, save_period: int, training_iterator: DataIterator,
                     validation_iterator: DataIterator):
+        """
+        Train the generated model of this class instance.
+
+        :param epochs: Number of training runs over the entire data.
+        :param learning_rate: The scaling factor to use on the gradients on each training step.
+        :param val_period: How many training steps between model evaluations on the validation data.
+        :param save_period: How many training steps between model checkpoints.
+        :param training_iterator: A batch generator of training data and labels.
+        :param validation_iterator: A batch generator of validation data and labels.
+        """
+
+        # Check if the model's graph is already generated
+        if not self.generated_graph:
+            raise Exception("The model graph is not generated yet. Use the function 'build_graph' "
+                            "before trying to perform the training.")
 
         global epoch
+
+        # Tensorboard directory and file name generation
         tensorboard_logs_dir = Path(Path.cwd(), "tensorboard_logs")
         tensorboard_logs_dir.mkdir(exist_ok=True)
         self.tensorboard_job_name += "-lr_{}-e_{}-b_{}".format(learning_rate, epochs, training_iterator.batch_size)
@@ -89,7 +127,7 @@ class BaseTensorflowModel(object):
             # Set up a Saver for periodically serializing the model
             saver = tf.train.Saver(max_to_keep=5)
 
-            # Create list to store useful data
+            # Create lists to store useful data
             self.training_costs = []
             self.training_accuracies = []
             self.validation_costs = []
@@ -101,13 +139,15 @@ class BaseTensorflowModel(object):
                 # Iterate over a generator that returns batches
                 for train_batch in training_iterator:
 
+                    # Keep track of the number of training steps performed so far
                     global_step_count = sess.run(self.global_step)
 
+                    # Generate training dictionary to feed the model
                     feed_dict = self._get_training_feed_dict(training_data=train_batch[0],
                                                              training_labels=train_batch[1],
                                                              learning_rate=learning_rate)
 
-                    # Do a gradient update, and log results to Tensorboard
+                    # Do a gradient update, log results to Tensorboard and save information to lists
                     train_cost, train_accuracy, _, train_summary = sess.run(
                         [self.cost, self.accuracy, self.training_op, self.summary_op],
                         feed_dict=feed_dict)
@@ -130,7 +170,7 @@ class BaseTensorflowModel(object):
                         Path(Path.cwd(), "trained_models", "tensorflow").mkdir(exist_ok=True, parents=True)
                         saver.save(sess, "./trained_models/tensorflow/model.ckpt")
 
-                # After each epoch evaluate the model and print information
+                # At the end of each epoch evaluate the model
                 mean_val_accuracy, mean_val_cost, val_summary = self._evaluate_on_validation(
                     validation_iterator=validation_iterator, session=sess)
 
@@ -154,7 +194,14 @@ class BaseTensorflowModel(object):
             logger.info("Model saved in path: {}".format(save_path))
 
     def _evaluate_on_validation(self, validation_iterator: DataIterator,
-                                session: tf.Session()):
+                                session: tf.Session()) -> (float, float, tf.Summary):
+        """
+        Evaluate the model on validation data, returned by a batch generator.
+
+        :param validation_iterator: A batch generator of validation data and labels.
+        :param session: The tensorflow session to use to perform the evaluation.
+        :return: A tuple with the calculated accuracy, cost and a summary to add to a Tensorboard file.
+        """
 
         # Calculate the mean of the validation metrics
         # over the validation set.
@@ -184,20 +231,38 @@ class BaseTensorflowModel(object):
         return mean_val_accuracy, mean_val_cost, val_summary
 
     def plot_train_stats(self):
+        """
+        Plot training information. Generates a figure with 4 plots:
+         - The cost during training.
+         - The accuracy during training.
+         - The cost on the validation data, during training.
+         - The accuracy on the validation data, during training.
+        """
+
+        # Generate figure with 4 plots
         f, subplots = plt.subplots(2, 2)
+
+        # Training cost plot
         subplots[0, 0].plot(range(len(self.training_costs)), self.training_costs, color="blue")
         subplots[0, 0].set_title("Training cost")
         subplots[0, 0].grid()
+
+        # Training accuracy plot
         subplots[0, 1].plot(range(len(self.validation_costs)), self.validation_costs, color="red")
         subplots[0, 1].set_title("Validation cost")
         subplots[0, 1].grid()
+
+        # Validation cost plot
         subplots[1, 0].plot(range(len(self.training_accuracies)), self.training_accuracies, color="blue")
         subplots[1, 0].set_title("Training accuracy")
         subplots[1, 0].grid()
+
+        # Validation accuracy plot
         subplots[1, 1].plot(range(len(self.validation_accuracies)), self.validation_accuracies, color="red")
         subplots[1, 1].set_title("Validation accuracy")
         subplots[1, 1].grid()
 
+        # Space between plots
         f.subplots_adjust(hspace=0.3)
 
         plt.show()

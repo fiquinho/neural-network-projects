@@ -25,10 +25,21 @@ logger.addHandler(console)
 
 
 class MushroomsTensorflowModel(BaseTensorflowModel):
+    """
+    Class used to create a model for the mushrooms classification task.
+    """
 
     def __init__(self, data_features: int, fully_connected_layers: int, fully_connected_size: int,
-                 fully_connected_activation: str, mode: str="train"):
-        super(MushroomsTensorflowModel, self).__init__(mode=mode)
+                 fully_connected_activation: str):
+        """
+        Create a instance of the class. Each instance can train a different model architecture.
+
+        :param data_features: The number of features of a single data point.
+        :param fully_connected_layers: The number of hidden fully connected layers of the model.
+        :param fully_connected_size: The number of hidden units of the fully connected layers.
+        :param fully_connected_activation: The activation function of the fully connected layers.
+        """
+        super(MushroomsTensorflowModel, self).__init__()
 
         self.model_name = "Mushrooms_Tensorflow_Model"
 
@@ -46,6 +57,9 @@ class MushroomsTensorflowModel(BaseTensorflowModel):
                              "activation functions.".format(fully_connected_activation))
 
     def _create_placeholders(self):
+        """
+        Create the placeholders of the model.
+        """
         logger.info("Creating model placeholders.")
 
         self.inputs_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, self.data_features], name="inputs")
@@ -57,6 +71,10 @@ class MushroomsTensorflowModel(BaseTensorflowModel):
         logger.info(self.learning_rate_input)
 
     def _build_forward(self):
+        """
+        Create the tensorflow graph for this instance's model.
+        """
+
         logger.info("Building model graph.")
 
         dense_layers = self.fully_connected_layers
@@ -115,12 +133,12 @@ class MushroomsTensorflowModel(BaseTensorflowModel):
             self.training_op = optimizer.minimize(self.cost, global_step=self.global_step)
 
         # The model outputs a value between 0 and 1. We need to transform
-        # it to the predicted label (0 or 1)
+        # it into the predicted label (0 or 1)
         predictions = tf.round(self.output_layer, name="predictions")
 
         # Metrics
         with tf.name_scope("metrics"):
-            # Get the model accuracy.
+            # Get the model's accuracy.
             self.accuracy = tf.metrics.accuracy(labels=self.labels_placeholder,
                                                 predictions=predictions,
                                                 name="accuracy")
@@ -136,13 +154,28 @@ class MushroomsTensorflowModel(BaseTensorflowModel):
                                                                     self.fully_connected_size)
 
     def _get_training_feed_dict(self, training_data: np.array, training_labels: np.array,
-                                learning_rate: float):
+                                learning_rate: float) -> dict:
+        """
+        Generate a dictionary to feed the model's graph for training.
+
+        :param training_data: A batch of data points to train the model with.
+        :param training_labels: A batch of labels of the data points.
+        :param learning_rate: The learning rate to use during training.
+        :return: The feeding dictionary for the model's graph.
+        """
         feed_dict = {self.inputs_placeholder: training_data,
                      self.labels_placeholder: training_labels,
                      self.learning_rate_input: learning_rate}
         return feed_dict
 
-    def _get_validation_feed_dict(self, validation_data, validation_labels):
+    def _get_validation_feed_dict(self, validation_data, validation_labels) -> dict:
+        """
+        Generate a dictionary to feed the model's graph for evaluating the model.
+
+        :param validation_data: A batch of data point to evaluate the model on.
+        :param validation_labels: A batch of labels of the data points.
+        :return: The feeding dictionary for the model's graph.
+        """
         feed_dict = {self.inputs_placeholder: validation_data,
                      self.labels_placeholder: validation_labels}
         return feed_dict
@@ -186,14 +219,12 @@ def main():
     validation_iterator = DataIterator(data=validation[0], labels=validation[1],
                                        batch_size=args.batch_size, shuffle=True)
 
+    # Create model instance, build the graph and train on the provided data
     model = MushroomsTensorflowModel(data_features=training[0].shape[1],
                                      fully_connected_layers=args.dense_layers,
                                      fully_connected_size=args.dense_size,
-                                     fully_connected_activation=args.dense_activation,
-                                     mode="train")
-
+                                     fully_connected_activation=args.dense_activation)
     model.build_graph()
-
     model.train_model(epochs=args.epochs,
                       learning_rate=args.learning_rate,
                       val_period=args.val_period,
@@ -201,6 +232,7 @@ def main():
                       training_iterator=training_iterator,
                       validation_iterator=validation_iterator)
 
+    # Plot training information
     if not args.no_plots:
         model.plot_train_stats()
 

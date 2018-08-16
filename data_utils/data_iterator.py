@@ -1,3 +1,8 @@
+"""
+This script has classes to iterate over data and produce batches of it,
+that can be used to train neural network models.
+"""
+
 import numpy as np
 
 
@@ -5,7 +10,7 @@ class DataIterator(object):
     """
     Class used to iterate over a dataset that is already converted to numpy arrays. One array
     should have the input data, and another should have the target data (the expected output).
-    This class allows to iterate the data in batches of ant length.
+    This class allows to iterate the data in batches of any length.
     """
 
     def __init__(self, data: np.array, labels: np.array, batch_size: int, shuffle: bool):
@@ -21,8 +26,8 @@ class DataIterator(object):
 
         if data.shape[0] != labels.shape[0]:
             raise ValueError("The number of data instances in the arrays doesn't match. "
-                             "Found data_instances: {} and labels_instances: {}".format(data.shape[0],
-                                                                                        labels.shape[0]))
+                             "Found {} data_instances and {} labels_instances".format(data.shape[0],
+                                                                                      labels.shape[0]))
 
         self.data = data
         self.labels = labels
@@ -53,18 +58,20 @@ class DataIterator(object):
             self.data = self.data[s]
             self.labels = self.labels[s]
 
+        # Generate full size batches
         for i in range(self.full_batches):
             data_batch = self.data[i * self.batch_size:(i+1) * self.batch_size, :]
             labels_batch = self.labels[i * self.batch_size:(i+1) * self.batch_size, :]
             yield data_batch, labels_batch
 
+        # Generate last batch with the remaining data
         if self.full_batches * self.batch_size != self.data_instances:
             data_batch = self.data[self.full_batches * self.batch_size:, :]
             labels_batch = self.labels[self.full_batches * self.batch_size:, :]
             yield data_batch, labels_batch
 
 
-# # Test code
+# # Test code. Uncomment to test this script.
 # test_data = np.array([[0, 0], [1, 1], [2, 2], [3, 3]])
 # test_labels = np.array([[0], [1], [2], [3]])
 # print("Test data:\n{}".format(test_data))
