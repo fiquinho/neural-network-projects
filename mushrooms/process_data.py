@@ -10,14 +10,14 @@ import numpy as np
 logger = logging.getLogger()
 
 
-DATA_FILE = Path("data", "mushrooms.csv")
+DATA_FILE = "data/mushrooms.csv"
 
 
 def data_preparation(data_split: float=0.1):
 
     # Read csv data to pandas dataframe
     logger.info("Reading data from '{}'".format(DATA_FILE))
-    data = pd.read_csv(str(DATA_FILE))
+    data = pd.read_csv(DATA_FILE)
 
     ##########################################################################
     #### Create labels array and remove it from the data variable        #####
