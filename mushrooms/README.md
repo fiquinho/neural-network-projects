@@ -44,7 +44,7 @@ There are 2 ways of using this project.
         ```bash
         python mushrooms_tensorflow.py --epochs 30 --batch_size 64 --learining_rate 0.1
         ```
-    - ### mushrooms_tensorflow.py
+    - ### mushrooms_keras.py
         Process the data and create a Keras model. Train the model and plot training 
         information. The basic usage of this script is:
         
